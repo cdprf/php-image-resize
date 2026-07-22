@@ -27,13 +27,6 @@
             "Gumlet\\": "lib/"
         }
     },
-    "autoload-dev":
-    {
-        "psr-4":
-        {
-            "Gumlet\\": "test/"
-        }
-    },
     "require-dev":
     {
         "phpunit/phpunit": "^10.0",

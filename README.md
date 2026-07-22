@@ -22,12 +22,51 @@ If using [Composer](https://getcomposer.org/), in your `composer.json` file add:
 ```json
 {
     "require": {
-        "gumlet/php-image-resize": "2.1.*"
+        "gumlet/php-image-resize": "^3.0"
     }
 }
 ```
 
-For PHP versions >= 7.2 to 8.0, `2.0.x` version of this library should be used.
+**PHP 8.1 or newer** is required (with the `gd` and `fileinfo` extensions). For older PHP versions, stay on the 2.x line:
+
+| PHP version | Library version |
+|-------------|-----------------|
+| 8.1 – 8.5+  | **3.x** (`^3.0`) |
+| 7.2 – 8.0   | `2.0.x` |
+| 8.0 (legacy)| `2.1.x` (if you were already on it) |
+
+### Upgrading from 2.x to 3.0
+
+3.0 is a **major** release focused on modern PHP, static analysis, and PHP 8.5 compatibility. Behavior is largely the same; most upgrades are about types and environment.
+
+**Requirements**
+
+- PHP **>= 8.1** (2.x supported older PHP).
+- `ext-gd` and `ext-fileinfo` (unchanged).
+
+**Breaking / API changes**
+
+- **Typed public API** — Methods and public properties use scalar types and `static` return types (e.g. `resize(int $width, int $height, bool $allow_enlarge = false): static`). Custom subclasses that override methods must match these signatures.
+- **`ImageResize::__construct(string $filename)`** — The path must be a non-empty string. Passing `null` is a `TypeError` in PHP 8+ (previously you could pass `null` and get `ImageResizeException`). Use a real path, a `data:` URL, or `ImageResize::createFromString()` for binary data.
+- **`ImageResize::createFromString(string $image_data)`** — Only accepts `string`; empty string still throws `ImageResizeException` with message `image_data must not be empty`.
+- **`save()` signature** — Documented types: `string|resource|null $filename`, optional `?int $image_type`, `int|string|null $quality`, `?int $permissions`, and `array|false $exact_size` (canvas size `[width, height]`, not a boolean).
+- **Class constants** — Crop/flip constants are `public const` on `ImageResize` (same names and values as before).
+- **BMP output** — `imagebmp()` is called without a invalid third argument (fixes deprecation when quality was `null`).
+
+**Fixes (compatible behavior)**
+
+- MIME detection via `finfo` runs only when `getimagesize()` fails (no `finfo_open` on every load).
+- **`chmod`** after save only runs when the destination is a **file path** string (not streams or `null` used by `output()`).
+- PHP **8.5**: removed deprecated `finfo_close()` usage.
+
+**Development / quality (library consumers unaffected unless you contribute)**
+
+- PSR-12 via PHP-CS-Fixer (`composer cs-fix` / `cs-check`).
+- PHPStan level 3 on `lib/` (`composer phpstan`).
+- PHPUnit 10+ config migrated; CI runs tests on PHP 8.2–8.5 and a separate static-analysis job.
+- Expanded test suite (missing file, `exact_size`, enlarge, WebP/AVIF save, gamma, filters).
+
+See [CHANGELOG.md](CHANGELOG.md) for the full 3.0.0 release notes.
 
 Otherwise:
 
@@ -221,6 +260,9 @@ If you would like to save/output in a different image type, you need to pass a (
 - `IMAGETYPE_GIF`
 - `IMAGETYPE_JPEG`
 - `IMAGETYPE_PNG`
+- `IMAGETYPE_WEBP` (when GD is built with WebP support)
+- `IMAGETYPE_AVIF` (when GD is built with AVIF support)
+- `IMAGETYPE_BMP`
 
 This allows you to save in a different type to the source:
 
@@ -242,7 +284,7 @@ $image->resize(800, 600);
 $image->save('image2.jpg');
 ```
 
-By default they are set to 85 and 6 respectively. See the manual entries for [`imagejpeg()`](http://www.php.net/manual/en/function.imagejpeg.php) and [`imagepng()`](http://www.php.net/manual/en/function.imagepng.php) for more info.
+By default they are set to 85, 85 (WebP), 60 (AVIF), and 6 (PNG) respectively. See the manual entries for [`imagejpeg()`](http://www.php.net/manual/en/function.imagejpeg.php) and [`imagepng()`](http://www.php.net/manual/en/function.imagepng.php) for more info.
 
 You can also pass the quality directly to the `save()`, `output()` and `getImageAsString()` methods:
 
@@ -303,11 +345,10 @@ ImageResize throws ImageResizeException for it's own for errors. You can catch t
 It is not to be expected, but should anything go horribly wrong mid way then notice or warning Errors could be shown from the PHP GD and Image Functions (http://php.net/manual/en/ref.image.php)
 
 ```php
-try{
-    $image = new ImageResize(null);
-    echo "This line will not be printed";
+try {
+    new ImageResize('/path/that/does/not/exist.jpg');
 } catch (ImageResizeException $e) {
-    echo "Something went wrong" . $e->getMessage();
+    echo 'Something went wrong: ' . $e->getMessage();
 }
 ```
 
