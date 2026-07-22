@@ -1,12 +1,11 @@
 <?php
 
-use \Gumlet\ImageResize;
-use \Gumlet\ImageResizeException;
-use \PHPUnit\Framework\TestCase;
+use Gumlet\ImageResize;
+use Gumlet\ImageResizeException;
+use PHPUnit\Framework\TestCase;
 
 class ImageResizeTest extends TestCase
 {
-
     private $image_types = array(
         'gif',
         'jpeg',
@@ -97,10 +96,10 @@ class ImageResizeTest extends TestCase
 
     public function testLoadRfc2397()
     {
-      $resize = new ImageResize($this->data_url);
+        $resize = new ImageResize($this->data_url);
 
-      $this->assertEquals(IMAGETYPE_GIF, $resize->source_type);
-      $this->assertInstanceOf('\Gumlet\ImageResize', $resize);
+        $this->assertEquals(IMAGETYPE_GIF, $resize->source_type);
+        $this->assertInstanceOf('\Gumlet\ImageResize', $resize);
     }
 
     public function testAddFilter()
@@ -314,7 +313,7 @@ class ImageResizeTest extends TestCase
         $image = $this->createImage(200, 100, 'png');
         $resize = new ImageResize($image);
 
-        $resize->freecrop(50, 50 , $x = 20, $y = 20);
+        $resize->freecrop(50, 50, $x = 20, $y = 20);
 
         $this->assertEquals(50, $resize->getDestWidth());
         $this->assertEquals(50, $resize->getDestHeight());
@@ -339,7 +338,6 @@ class ImageResizeTest extends TestCase
 
         $reflection_class = new ReflectionClass('\Gumlet\ImageResize');
         $source_x = $reflection_class->getProperty('source_x');
-        $source_x->setAccessible(true);
 
         $this->assertEquals(100, $source_x->getValue($resize));
 
@@ -347,7 +345,6 @@ class ImageResizeTest extends TestCase
 
         $reflection_class = new ReflectionClass('\Gumlet\ImageResize');
         $source_x = $reflection_class->getProperty('source_x');
-        $source_x->setAccessible(true);
 
         $this->assertEquals(50, $source_x->getValue($resize));
 
@@ -355,7 +352,6 @@ class ImageResizeTest extends TestCase
 
         $reflection_class = new ReflectionClass('\Gumlet\ImageResize');
         $source_x = $reflection_class->getProperty('source_x');
-        $source_x->setAccessible(true);
 
         $this->assertEquals(25, $source_x->getValue($resize));
     }
@@ -445,14 +441,24 @@ class ImageResizeTest extends TestCase
     {
         $resize = ImageResize::createFromString(base64_decode($this->image_string));
         $image = $resize->getImageAsString();
-        $this->assertEquals(35, strlen($image));
+
+        $this->assertStringStartsWith('GIF', $image);
+        $info = getimagesizefromstring($image);
+        $this->assertEquals(1, $info[0]);
+        $this->assertEquals(1, $info[1]);
+        $this->assertEquals(IMAGETYPE_GIF, $info[2]);
     }
 
     public function testToString()
     {
         $resize = ImageResize::createFromString(base64_decode($this->image_string));
-        $image = (string)$resize;
-        $this->assertEquals(35, strlen($image));
+        $image = (string) $resize;
+
+        $this->assertStringStartsWith('GIF', $image);
+        $info = getimagesizefromstring($image);
+        $this->assertEquals(1, $info[0]);
+        $this->assertEquals(1, $info[1]);
+        $this->assertEquals(IMAGETYPE_GIF, $info[2]);
     }
 
 
@@ -525,7 +531,7 @@ class ImageResizeTest extends TestCase
      * Helpers
      */
 
-    private function createImage($width, $height, $type)
+    private function createImage(int $width, int $height, string $type)
     {
         if (!in_array($type, $this->image_types)) {
             throw new ImageResizeException('Unsupported image type');
