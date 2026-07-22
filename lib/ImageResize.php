@@ -213,7 +213,7 @@ class ImageResize
     public function save(
         string|null $filename,
         ?int $image_type = null,
-        int|string|null $quality = null,
+        int|null $quality = null,
         ?int $permissions = null,
         array|false $exact_size = false
     ): static {
