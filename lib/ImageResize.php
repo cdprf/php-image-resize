@@ -107,14 +107,15 @@ class ImageResize
             throw new ImageResizeException('File does not exist');
         }
 
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-
         if (!$image_info = getimagesize($filename, $this->source_info)) {
             $image_info = getimagesize($filename);
         }
 
         if (!$image_info) {
-            if (strstr(finfo_file($finfo, $filename), 'image') !== false) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $filename);
+            finfo_close($finfo);
+            if (strstr($mime, 'image') !== false) {
                 throw new ImageResizeException('Unsupported image type');
             }
 
