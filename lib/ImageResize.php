@@ -95,9 +95,9 @@ class ImageResize
      *
      * @throws ImageResizeException
      */
-    public function __construct(?string $filename)
+    public function __construct(string $filename)
     {
-        if ($filename === null || $filename === '' || (substr($filename, 0, 5) !== 'data:' && !is_file($filename))) {
+        if ($filename === '' || (substr($filename, 0, 5) !== 'data:' && !is_file($filename))) {
             throw new ImageResizeException('File does not exist');
         }
 

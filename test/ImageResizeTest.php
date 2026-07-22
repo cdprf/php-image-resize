@@ -88,7 +88,7 @@ class ImageResizeTest extends TestCase
 
     public function testLoadString()
     {
-        $resize = ImageResize::createFromString(base64_decode($this->image_string));
+        $resize = ImageResize::createFromString($this->decodeFixture($this->image_string));
 
         $this->assertEquals(IMAGETYPE_GIF, $resize->source_type);
         $this->assertInstanceOf('\Gumlet\ImageResize', $resize);
@@ -106,30 +106,23 @@ class ImageResizeTest extends TestCase
     {
         $image = $this->createImage(1, 1, 'png');
         $resize = new ImageResize($image);
-        $filename = $this->getTempFile();
-
-        $this->assertInstanceOf('\Gumlet\ImageResize', $resize->addFilter('imagefilter'));
-    }
-
-    public function testApplyFilter()
-    {
-        $image = $this->createImage(1, 1, 'png');
-        $resize = new ImageResize($image);
         $resize->addFilter('imagefilter');
         $filename = $this->getTempFile();
 
-        $this->assertInstanceOf('\Gumlet\ImageResize', $resize->save($filename));
+        $resize->save($filename);
+
+        $this->assertFileExists($filename);
+        $this->assertEquals(IMAGETYPE_PNG, exif_imagetype($filename));
     }
 
     /**
      * Bad load tests
      */
-
-    public function testLoadNoFile()
+    public function testLoadMissingFile()
     {
         $this->expectException(ImageResizeException::class);
         $this->expectExceptionMessage('File does not exist');
-        new ImageResize(null);
+        new ImageResize(sys_get_temp_dir() . '/php_image_resize_missing_' . uniqid('', true) . '.jpg');
     }
 
     public function testLoadUnsupportedFile()
@@ -154,7 +147,7 @@ class ImageResizeTest extends TestCase
         $filename = $this->getTempFile();
 
         $image = fopen($filename, 'w');
-        fwrite($image, base64_decode($this->unsupported_image));
+        fwrite($image, $this->decodeFixture($this->unsupported_image));
         fclose($image);
 
         new ImageResize($filename);
@@ -164,7 +157,7 @@ class ImageResizeTest extends TestCase
     {
         $this->expectException(ImageResizeException::class);
         $this->expectExceptionMessage('Unsupported image type');
-        ImageResize::createFromString(base64_decode($this->unsupported_image));
+        ImageResize::createFromString($this->decodeFixture($this->unsupported_image));
     }
 
 
@@ -291,6 +284,17 @@ class ImageResizeTest extends TestCase
 
         $this->assertEquals(200, $resize->getDestWidth());
         $this->assertEquals(100, $resize->getDestHeight());
+    }
+
+    public function testResizeAllowEnlarge()
+    {
+        $image = $this->createImage(200, 100, 'png');
+        $resize = new ImageResize($image);
+
+        $resize->resize(400, 200, true);
+
+        $this->assertEquals(400, $resize->getDestWidth());
+        $this->assertEquals(200, $resize->getDestHeight());
     }
 
     /**
@@ -432,6 +436,67 @@ class ImageResizeTest extends TestCase
         $this->assertEquals(600, substr(decoct(fileperms($filename)), 3));
     }
 
+    public function testSaveExactSize()
+    {
+        $image = $this->createImage(200, 100, 'png');
+        $resize = new ImageResize($image);
+        $resize->resizeToHeight(50);
+
+        $filename = $this->getTempFile();
+        $resize->save($filename, IMAGETYPE_PNG, null, null, [120, 80]);
+
+        $info = getimagesize($filename);
+        $this->assertIsArray($info);
+        $this->assertEquals(120, $info[0]);
+        $this->assertEquals(80, $info[1]);
+    }
+
+    public function testSaveWebp()
+    {
+        if (!function_exists('imagewebp')) {
+            $this->markTestSkipped('WebP support is not available');
+        }
+
+        $image = __DIR__ . '/ressources/test_webp.webp';
+        $resize = new ImageResize($image);
+        $filename = $this->getTempFile();
+
+        $resize->save($filename, IMAGETYPE_WEBP);
+
+        $this->assertEquals(IMAGETYPE_WEBP, exif_imagetype($filename));
+    }
+
+    public function testSaveAvif()
+    {
+        if (!function_exists('imageavif')) {
+            $this->markTestSkipped('AVIF support is not available');
+        }
+
+        $image = __DIR__ . '/ressources/test_avif.avif';
+        $resize = new ImageResize($image);
+        $filename = $this->getTempFile();
+
+        $resize->save($filename, IMAGETYPE_AVIF);
+
+        $this->assertEquals(IMAGETYPE_AVIF, exif_imagetype($filename));
+    }
+
+    public function testGammaSave()
+    {
+        $image = $this->createImage(200, 100, 'jpeg');
+        $resize = new ImageResize($image);
+        $resize->resizeToWidth(100)->gamma(true);
+
+        $filename = $this->getTempFile();
+        $resize->save($filename);
+
+        $this->assertEquals(IMAGETYPE_JPEG, exif_imagetype($filename));
+        $info = getimagesize($filename);
+        $this->assertIsArray($info);
+        $this->assertEquals(100, $info[0]);
+        $this->assertEquals(50, $info[1]);
+    }
+
 
     /**
      * String test
@@ -439,11 +504,12 @@ class ImageResizeTest extends TestCase
 
     public function testGetImageAsString()
     {
-        $resize = ImageResize::createFromString(base64_decode($this->image_string));
+        $resize = ImageResize::createFromString($this->decodeFixture($this->image_string));
         $image = $resize->getImageAsString();
 
         $this->assertStringStartsWith('GIF', $image);
         $info = getimagesizefromstring($image);
+        $this->assertIsArray($info);
         $this->assertEquals(1, $info[0]);
         $this->assertEquals(1, $info[1]);
         $this->assertEquals(IMAGETYPE_GIF, $info[2]);
@@ -451,11 +517,12 @@ class ImageResizeTest extends TestCase
 
     public function testToString()
     {
-        $resize = ImageResize::createFromString(base64_decode($this->image_string));
+        $resize = ImageResize::createFromString($this->decodeFixture($this->image_string));
         $image = (string) $resize;
 
         $this->assertStringStartsWith('GIF', $image);
         $info = getimagesizefromstring($image);
+        $this->assertIsArray($info);
         $this->assertEquals(1, $info[0]);
         $this->assertEquals(1, $info[1]);
         $this->assertEquals(IMAGETYPE_GIF, $info[2]);
@@ -530,6 +597,14 @@ class ImageResizeTest extends TestCase
     /**
      * Helpers
      */
+
+    private function decodeFixture(string $base64): string
+    {
+        $decoded = base64_decode($base64, true);
+        $this->assertNotFalse($decoded);
+
+        return $decoded;
+    }
 
     private function createImage(int $width, int $height, string $type)
     {
